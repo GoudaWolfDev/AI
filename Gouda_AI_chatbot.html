@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GOUDA AI Chatbot</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@3.9.4/dist/full.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+
+    <!-- Google Font for the design -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+
+<body class="bg-gradient-to-br from-indigo-800 to-teal-700 min-h-screen flex items-center justify-center text-gray-200 font-inter">
+
+    <div id="app" class="w-full h-full flex flex-col justify-center items-center p-8 bg-gray-800 rounded-xl shadow-xl max-w-2xl mx-auto">
+
+        <h1 class="text-4xl font-semibold text-center mb-6">GOUDA AI Chatbot</h1>
+
+        <!-- Character Creation Section -->
+        <div v-if="!characterCreated" class="flex flex-col w-full space-y-4">
+            <input type="text" v-model="characterName" placeholder="Enter a name for your character"
+                class="input input-bordered w-full p-4 text-white focus:ring-indigo-500 rounded-lg placeholder-gray-500 transition-all duration-300 ease-in-out hover:bg-indigo-600 shadow-lg hover:shadow-indigo-400">
+            <textarea v-model="characterDescription" placeholder="Describe your character in a few words"
+                class="textarea textarea-bordered w-full p-4 text-white focus:ring-indigo-500 rounded-lg placeholder-gray-500 transition-all duration-300 ease-in-out hover:bg-indigo-600 shadow-lg hover:shadow-indigo-400"></textarea>
+
+            <button @click="createCharacter" class="btn btn-primary w-full py-3 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-lg hover:shadow-indigo-400 transition-all duration-300 ease-in-out">
+                Create Character
+            </button>
+        </div>
+
+        <!-- Chat Section -->
+        <div v-if="characterCreated" class="flex flex-col w-full h-full max-h-[80vh] overflow-auto mt-6">
+            <div class="overflow-y-auto flex-1 space-y-4 p-4 w-full">
+                <div v-for="(message, index) in messages" :key="index" :class="[
+                        'chat-bubble',
+                        message.role === 'user' ? 'chat-bubble-primary' : 'chat-bubble-secondary'
+                    ]" 
+                    :style="message.role === 'assistant' ? 'background: linear-gradient(to right, #4e73df, #7f5bb0); color: white;' : ''">
+                    <p><strong>{{ message.role }}:</strong> {{ message.content }}</p>
+                </div>
+
+                <!-- Loader Spinner -->
+                <div v-if="loading" class="flex justify-center items-center">
+                    <div class="spinner-border animate-spin inline-block w-12 h-12 border-4 border-solid border-teal-400 border-t-transparent rounded-full" role="status"></div>
+                </div>
+            </div>
+
+            <!-- Chat Input Section -->
+            <div class="w-full p-4 mt-4 flex flex-col space-y-4">
+                <input type="text" v-model="inputMessage" @keyup.enter="sendMessage"
+                    placeholder="Type a message..."
+                    class="input input-bordered w-full p-4 text-white focus:ring-indigo-500 rounded-lg shadow-md placeholder-gray-500 transition-all duration-300 ease-in-out hover:bg-indigo-600 shadow-lg hover:shadow-indigo-400">
+                <button @click="sendMessage" class="btn w-full py-3 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-lg hover:shadow-indigo-400 transition-all duration-300 ease-in-out">
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        new Vue({
+            el: '#app',
+            data: {
+                characterName: '',
+                characterDescription: '',
+                inputMessage: '',
+                messages: [],
+                characterCreated: false,
+                loading: false
+            },
+            methods: {
+                createCharacter() {
+                    if (this.characterName.trim() !== '' && this.characterDescription.trim() !== '') {
+                        this.messages.push({ role: "system", content: `You are ${this.characterName}. ${this.characterDescription}` });
+                        this.characterCreated = true;
+                        this.characterName = '';
+                        this.characterDescription = '';
+                    }
+                },
+                async sendMessage() {
+                    if (this.inputMessage.trim() !== '') {
+                        const userMessage = { role: "user", content: this.inputMessage };
+                        this.inputMessage = '';
+                        this.messages.push(userMessage);
+
+                        // Set loading state to true
+                        this.loading = true;
+
+                        const data = await generateText(this.messages);
+                        
+                        // Stop loading and add the response
+                        this.loading = false;
+                        this.messages.push({ role: "assistant", content: data });
+                    }
+                }
+            }
+        });
+
+        async function generateText(messages) {
+            const { HfInference } = await import('https://esm.sh/@huggingface/inference');
+            const hf = new HfInference('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');
+
+            const response = await hf.chatCompletion({
+                model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                messages: messages,
+                max_tokens: 500,
+                temperature: 0.1,
+                seed: 0,
+            });
+
+            return response.choices[0].message.content;
+        }
+    </script>
+</body>
+
+</html>
